@@ -1,0 +1,16 @@
+build/
+node_modules/
+.full-build
+
+.gradle
+.idea/*
+!.idea/icon.svg
+out
+*.iml
+.DS_Store
+
+# eclipse
+.classpath
+.project
+.settings/
+bin/

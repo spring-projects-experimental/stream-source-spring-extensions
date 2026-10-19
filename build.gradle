@@ -1,0 +1,67 @@
+plugins {
+	id 'java-library'
+	id 'maven-publish'
+	id 'io.spring.nullability' version '0.0.15'
+}
+
+ext {
+	springVersion = '7.0.9'
+	streamSourceVersion = '0.1.0-SNAPSHOT'
+	junitVersion = '6.0.3'
+	log4jVersion = '2.25.5'
+}
+
+group = 'org.springframework.experimental.streamsource'
+version = '0.1.0-SNAPSHOT'
+description = 'Spring extensions for Stream Source'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenLocal()
+	mavenCentral()
+	maven { url = 'https://repo.spring.io/milestone' }
+	maven { url = 'https://repo.spring.io/snapshot' }
+}
+
+dependencies {
+	api "io.spring.streamsource:stream-source:$streamSourceVersion"
+	api "org.springframework:spring-web:$springVersion"
+
+	testImplementation "org.junit.jupiter:junit-jupiter:$junitVersion"
+	testImplementation 'org.assertj:assertj-core:3.27.7'
+	testImplementation "org.springframework:spring-context:$springVersion"
+	testImplementation "org.springframework:spring-webmvc:$springVersion"
+	testImplementation 'org.apache.tomcat.embed:tomcat-embed-core:11.0.24'
+	testImplementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
+
+	testRuntimeOnly "org.apache.logging.log4j:log4j-core:$log4jVersion"
+	testRuntimeOnly "org.apache.logging.log4j:log4j-slf4j2-impl:$log4jVersion"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher:$junitVersion"
+}
+
+// The library targets a Java 17 baseline: no preview APIs, and nothing newer than 17,
+// which compiling against the Java 25 toolchain would otherwise let through.
+compileJava {
+	options.release = 17
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'failed'
+		exceptionFormat = 'full'
+	}
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
+}
