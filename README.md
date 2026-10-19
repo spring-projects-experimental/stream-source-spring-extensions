@@ -1,5 +1,5 @@
 
-Experimental support for use of [stream-source](https://github.com/spring-projects-experimental/stream-source) in Spring projects.
+Experimental support for the use of [stream-source](https://github.com/spring-projects-experimental/stream-source) in Spring projects.
 
 Currently, the project provides an SSE `Source` that decodes an SSE stream and uses HTTP messages converters to convert event data to a target object type. 
 
@@ -17,5 +17,5 @@ For use with `RestClient` or `RestTemplate`, see [SseIntegrationTests](src/test/
 
 ## Build
 
-`stream-source` is currently resolved from the local Maven repository.
-Install it first, by running `./gradlew publishToMavenLocal` in the `stream-source` repository, then build this project with `./gradlew build`.
+Currently `stream-source` is resolved from the local Maven repository.
+To install it, clone [spring-projects-experimental/stream-source](https://github.com/spring-projects-experimental/stream-source) locally and run `./gradlew publishToMavenLocal`.
