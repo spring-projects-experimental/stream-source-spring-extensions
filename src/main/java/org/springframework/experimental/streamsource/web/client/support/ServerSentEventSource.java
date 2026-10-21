@@ -112,6 +112,11 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 	}
 
 	@Override
+	protected void handleClose(@Nullable Throwable failure) throws IOException {
+		this.reader.close();
+	}
+
+	@Override
 	public String toString() {
 		return "ServerSentEventSource[\"" + this.url + "\"]";
 	}
