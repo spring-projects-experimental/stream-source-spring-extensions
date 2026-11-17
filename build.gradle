@@ -6,13 +6,13 @@ plugins {
 
 ext {
 	springVersion = '7.0.9'
-	streamSourceVersion = '0.1.0-SNAPSHOT'
+	streamSourceVersion = '0.8.0-SNAPSHOT'
 	junitVersion = '6.0.3'
 	log4jVersion = '2.25.5'
 }
 
 group = 'org.springframework.experimental.streamsource'
-version = '0.1.0-SNAPSHOT'
+version = '0.8.0-SNAPSHOT'
 description = 'Spring extensions for Stream Source'
 
 java {

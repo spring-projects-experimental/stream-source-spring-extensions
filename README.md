@@ -11,7 +11,7 @@ For use with `RestClient` or `RestTemplate`, see [SseIntegrationTests](src/test/
 <dependency>
     <groupId>org.springframework.experimental.streamsource</groupId>
     <artifactId>stream-source-spring-extensions</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
 </dependency>
 ```
 
