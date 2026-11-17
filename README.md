@@ -1,9 +1,20 @@
 
 Experimental support for the use of [stream-source](https://github.com/spring-projects-experimental/stream-source) in Spring projects.
 
-Currently, the project provides an SSE `Source` that decodes an SSE stream and uses HTTP messages converters to convert event data to a target object type. 
+Currently, the project provides an SSE `Source` that decodes an SSE stream via `HttpMessageConverters`. 
 
-For use with `RestClient` or `RestTemplate`, see [SseIntegrationTests](src/test/java/org/springframework/experimental/streamsource/web/client/support/SseIntegrationTests.java) for usage.
+To convert the data of each parsed event, pass `HttpMessageConverters` and an `EventProcessor`.
+The processor determines the target Java type and optionally a media type to select a converter.
+If the target type is not set, the raw String data is used.
+For example:
+
+```java
+new ServerSentEventSource<Object>(url, body, converters, event -> {
+	event.setTargetType(Person.class);
+});
+```
+
+For use with `RestClient`, see [SseIntegrationTests](src/test/java/org/springframework/experimental/streamsource/web/client/support/SseIntegrationTests.java).
 
 
 **Maven coordinates:**

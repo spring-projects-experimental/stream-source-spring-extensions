@@ -1,8 +1,11 @@
 package org.springframework.experimental.streamsource.web.client.support;
 
+import java.io.InputStream;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
 
 import http.server.HttpServer;
 import http.server.TomcatHttpServer;
@@ -16,8 +19,12 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.task.VirtualThreadTaskExecutor;
+import org.springframework.experimental.streamsource.web.client.support.ServerSentEventSource.EventProcessor;
+import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.http.converter.HttpMessageConverters;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
@@ -95,20 +102,63 @@ class SseIntegrationTests {
 	}
 
 
+	@Test
+	void resolvesEventsByType() throws Exception {
+		List<String> rawEvents = new ArrayList<>();
+
+		HttpMessageConverters converters =
+				HttpMessageConverters.forClient().registerDefaults().build();
+
+		EventProcessor<Object> eventProcessor = event -> {
+			rawEvents.add(event.id() + "|" + event.eventType() + "|" + event.data());
+			if ("person".equals(event.eventType())) {
+				event.setTargetType(Person.class);
+			}
+			else if ("people".equals(event.eventType())) {
+				event.setTargetType(new ParameterizedTypeReference<List<Person>>() {}, MediaType.APPLICATION_JSON);
+			}
+		};
+
+		try (Source<ServerSentEvent<Object>> source = performRequest("/sse-typed",
+				(url, body) -> new ServerSentEventSource<>(url, body, converters, eventProcessor))) {
+
+			List<ServerSentEvent<Object>> events = new ArrayList<>();
+			while (source.receiveNext()) {
+				events.add(source.next());
+			}
+			assertThat(events)
+					.extracting(ServerSentEvent::id, ServerSentEvent::event, ServerSentEvent::data)
+					.containsExactly(
+							tuple("1", "person", new Person("Joe", 42)),
+							tuple("2", "people", List.of(new Person("Jane", 35), new Person("Jim", 27))),
+							tuple("3", "message", "plain text"));
+		}
+
+		assertThat(rawEvents).containsExactly(
+				"1|person|{\"name\":\"Joe\",\"age\":42}",
+				"2|people|[{\"name\":\"Jane\",\"age\":35},{\"name\":\"Jim\",\"age\":27}]",
+				"3|message|plain text");
+	}
+
+
 	private static Source<ServerSentEvent<String>> performRequest(String path) {
+		return performRequest(path, ServerSentEventSource::new);
+	}
+
+	private static <T> Source<ServerSentEvent<T>> performRequest(
+			String path, BiFunction<URI, InputStream, ServerSentEventSource<T>> sourceFactory) {
 
 		return restClient.get().uri(path).exchangeForRequiredValue((request, response) -> {
-
 			if (response.getStatusCode().isError()) {
 				throw response.createException();
 			}
-
-			ServerSentEventSource<String> source =
-					new ServerSentEventSource<>(request.getURI(), response.getBody());
-
+			ServerSentEventSource<T> source = sourceFactory.apply(request.getURI(), response.getBody());
 			return ActiveSource.fromSource(source).start();
-
 		}, false);
+	}
+
+
+	public record Person(String name, int age) {
 	}
 
 
@@ -146,6 +196,25 @@ class SseIntegrationTests {
 					emitter.send(SseEmitter.event().id("1").data("data-1"));
 					Thread.sleep(SSE_EVENT_GAP);
 					emitter.send(SseEmitter.event().id("2").data("data-2"));
+					emitter.complete();
+				}
+				catch (Exception ex) {
+					logger.error("Failed to emit SSE events", ex);
+				}
+			});
+			return emitter;
+		}
+
+		@GetMapping("/sse-typed")
+		public SseEmitter sseTyped() {
+			SseEmitter emitter = new SseEmitter();
+			Thread.ofVirtual().start(() -> {
+				try {
+					emitter.send(SseEmitter.event().id("1").name("person")
+							.data(new Person("Joe", 42), MediaType.APPLICATION_JSON));
+					emitter.send(SseEmitter.event().id("2").name("people")
+							.data(List.of(new Person("Jane", 35), new Person("Jim", 27)), MediaType.APPLICATION_JSON));
+					emitter.send(SseEmitter.event().id("3").name("message").data("plain text"));
 					emitter.complete();
 				}
 				catch (Exception ex) {
