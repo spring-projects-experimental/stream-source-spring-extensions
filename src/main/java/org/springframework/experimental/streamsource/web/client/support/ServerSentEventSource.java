@@ -2,7 +2,6 @@ package org.springframework.experimental.streamsource.web.client.support;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -26,7 +25,6 @@ import org.springframework.http.converter.HttpMessageConverters;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.SmartHttpMessageConverter;
 import org.springframework.util.ObjectUtils;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 
 
@@ -54,6 +52,8 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 	private final HttpMessageConverters converters;
 
 	private final EventProcessor<T> eventProcessor;
+
+	private boolean firstLine = true;
 
 
 	/**
@@ -90,18 +90,31 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 		while (true) {
 			String line = this.reader.readLine();
 			if (line == null) {
-				if (event.hasFields()) {
-					throw new EOFException("Partial event: " + event);
-				}
+				// WHATWG: discard an incomplete event at the end of the stream
 				return null;
 			}
 
-			if (StringUtils.hasText(line)) {
+			// WHATWG: ignore and strip a single leading UTF-8 Byte Order Mark (BOM)
+			if (this.firstLine) {
+				this.firstLine = false;
+				if (line.startsWith("\uFEFF")) {
+					line = line.substring(1);
+				}
+			}
+
+			// Only an empty line ends an event, not a whitespace-only line
+			if (!line.isEmpty()) {
 				event.addField(line);
 				continue;
 			}
 
 			// End of event
+
+			// WHATWG: don't dispatch an event without data, and start over
+			if (!event.hasData()) {
+				event = new DefaultParsedEvent();
+				continue;
+			}
 
 			this.eventProcessor.process(event);
 
@@ -283,7 +296,7 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 
 		private final StringBuilder data = new StringBuilder();
 
-		private boolean hasFields;
+		private boolean hasData;
 
 		private ResolvableType targetType = ResolvableType.forClass(String.class);
 
@@ -317,8 +330,8 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 			return this.mediaType;
 		}
 
-		public boolean hasFields() {
-			return this.hasFields;
+		public boolean hasData() {
+			return this.hasData;
 		}
 
 
@@ -341,24 +354,56 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 				return;
 			}
 
-			this.hasFields = true;
-
 			String field = (index != -1 ? line.substring(0, index) : line);
 			String value = (index != -1 ? line.substring(index + 1) : "");
+			if (value.startsWith(" ")) {
+				value = value.substring(1);
+			}
 
 			switch (field) {
 				case "event":
 					this.eventType = value;
 					break;
 				case "data":
+					// Multiple data lines are joined with a line feed
+					if (this.hasData) {
+						this.data.append('\n');
+					}
 					this.data.append(value);
+					this.hasData = true;
 					break;
 				case "id":
-					this.id = value;
+					// Ignore an id with a NULL character
+					if (value.indexOf('\u0000') == -1) {
+						this.id = value;
+					}
 					break;
 				case "retry":
-					this.retry = Duration.ofMillis(Long.parseLong(value));
+					this.retry = parseRetry(value);
 					break;
+			}
+		}
+
+		/**
+		 * Parse a "retry" value, or keep the current one if the value is not
+		 * all ASCII digits, as the spec requires.
+		 */
+		private @Nullable Duration parseRetry(String value) {
+			if (value.isEmpty()) {
+				return this.retry;
+			}
+			for (int i = 0; i < value.length(); i++) {
+				char c = value.charAt(i);
+				if (c < '0' || c > '9') {
+					return this.retry;
+				}
+			}
+			try {
+				return Duration.ofMillis(Long.parseLong(value));
+			}
+			catch (NumberFormatException ex) {
+				// Too large
+				return this.retry;
 			}
 		}
 
