@@ -1,23 +1,30 @@
+## Overview
 
-Experimental support for the use of [stream-source](https://github.com/spring-projects-experimental/stream-source) in Spring projects.
+Experimental support for the use of the [stream-source](https://github.com/spring-projects-experimental/stream-source) library in Spring projects.
 
-Currently, the project provides an SSE `Source` that decodes an SSE stream via `HttpMessageConverters`. 
+## SSE Streaming for RestClient
 
-To convert the data of each parsed event, pass `HttpMessageConverters` and an `EventProcessor`.
-The processor determines the target Java type and optionally a media type to select a converter.
-If the target type is not set, the raw String data is used.
-For example:
+[ServerSentEventSource](src/main/java/org/springframework/experimental/streamsource/web/client/support/ServerSentEventSource.java) is an implementation of [Source](https://github.com/spring-projects-experimental/stream-source/blob/main/DESIGN.md#source) that parses and decodes Server-sent events.
 
+For events with String data (not converted):
 ```java
-new ServerSentEventSource<Object>(url, body, converters, event -> {
-	event.setTargetType(Person.class);
-});
+InputStream body = ...;
+ServerSentEventSource<String> source = new ServerSentEventSource<>(uri, body);
 ```
 
-For use with `RestClient`, see [SseIntegrationTests](src/test/java/org/springframework/experimental/streamsource/web/client/support/SseIntegrationTests.java).
+For events with data converted to higher level objects, also provide `HttpMessageConverters` and an `EventProcessor` to set the target Java type, and optionally the MediaType to choose an `HttpMessageConverter`:
 
+```java
+ServerSentEventSource<Person> source =
+        new ServerSentEventSource<Person>(url, body, converters, event -> {
+            event.setTargetType(Person.class);
+        });
+```
 
-**Maven coordinates:**
+For example use with `RestClient`, see [SseIntegrationTests](src/test/java/org/springframework/experimental/streamsource/web/client/support/SseIntegrationTests.java).
+
+## Maven Artefact
+
 ```xml
 <dependency>
     <groupId>org.springframework.experimental.streamsource</groupId>

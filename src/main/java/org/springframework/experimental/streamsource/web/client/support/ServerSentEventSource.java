@@ -45,7 +45,7 @@ import org.springframework.web.client.RestClientException;
  */
 public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>> {
 
-	private final URI url;
+	private final URI uri;
 
 	private final BufferedReader reader;
 
@@ -58,24 +58,25 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 
 	/**
 	 * Create an instance whose event data is the raw String.
-	 * @param url the URL of the request, for logging purposes
+	 * @param uri the URL of the request, for logging purposes
 	 * @param inputStream the response body to read from
 	 */
-	public ServerSentEventSource(URI url, InputStream inputStream) {
-		this(url, inputStream, HttpMessageConverters.forClient().build(), parsedEvent -> {});
+	public ServerSentEventSource(URI uri, InputStream inputStream) {
+		this(uri, inputStream, HttpMessageConverters.forClient().build(), parsedEvent -> {});
 	}
 
 	/**
 	 * Create an instance that converts event data to a higher level Java object.
-	 * @param url the URL of the request, for logging purposes
+	 * @param uri the URL of the request, for logging purposes
 	 * @param responseBody the response body to read from
 	 * @param converters the converters to convert raw event data with
 	 * @param processor a processor to determine the target Java type and/or MediaType of parsed events
 	 */
 	public ServerSentEventSource(
-			URI url, InputStream responseBody, HttpMessageConverters converters, EventProcessor<T> processor) {
+			URI uri, InputStream responseBody,
+			HttpMessageConverters converters, EventProcessor<T> processor) {
 
-		this.url = url;
+		this.uri = uri;
 		this.reader = new BufferedReader(new InputStreamReader(responseBody, StandardCharsets.UTF_8));
 		this.converters = converters;
 		this.eventProcessor = processor;
@@ -83,7 +84,7 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 
 
 	@Override
-	protected @Nullable ServerSentEvent<T> receiveItem() throws IOException {
+	protected final @Nullable ServerSentEvent<T> receiveItem() throws IOException {
 
 		DefaultParsedEvent event = new DefaultParsedEvent();
 
@@ -194,7 +195,7 @@ public class ServerSentEventSource<T> extends AbstractSource<ServerSentEvent<T>>
 
 	@Override
 	public String toString() {
-		return "ServerSentEventSource[\"" + this.url + "\"]";
+		return "ServerSentEventSource[\"" + this.uri + "\"]";
 	}
 
 

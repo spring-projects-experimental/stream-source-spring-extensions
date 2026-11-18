@@ -1,6 +1,7 @@
 package org.springframework.experimental.streamsource.web.client.support;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -265,22 +266,20 @@ class ServerSentEventSourceTests {
 
 
 	private static List<ServerSentEvent<String>> read(String body) throws Exception {
-		return readAll(createSource(body));
+		ServerSentEventSource<String> source = new ServerSentEventSource<>(URI.create("/sse"), toInputStream(body));
+		return collectToList(source);
 	}
 
 	private static <T> List<ServerSentEvent<T>> read(String body, EventProcessor<T> processor) throws Exception {
-		return readAll(new ServerSentEventSource<>(URI.create("/sse"), toInputStream(body), converters, processor));
+		ServerSentEventSource<T> source = new ServerSentEventSource<>(URI.create("/sse"), toInputStream(body), converters, processor);
+		return collectToList(source);
 	}
 
-	private static ServerSentEventSource<String> createSource(String body) {
-		return new ServerSentEventSource<>(URI.create("/sse"), toInputStream(body));
-	}
-
-	private static ByteArrayInputStream toInputStream(String body) {
+	private static InputStream toInputStream(String body) {
 		return new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8));
 	}
 
-	private static <T> List<ServerSentEvent<T>> readAll(ServerSentEventSource<T> source) throws Exception {
+	private static <T> List<ServerSentEvent<T>> collectToList(ServerSentEventSource<T> source) throws Exception {
 		try (source) {
 			List<ServerSentEvent<T>> events = new ArrayList<>();
 			while (source.receiveNext()) {
